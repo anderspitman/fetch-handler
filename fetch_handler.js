@@ -1,12 +1,12 @@
-async function serve(handler, opt) {
+async function serve(opt) {
 
   switch (detectRuntime()) {
     case 'deno': {
-      Deno.serve({ handler, port: opt?.port });
+      Deno.serve({ handler: opt.handler, port: opt?.port });
       break;
     }
     case 'bun': {
-      Bun.serve({ fetch: handler, port: opt?.port })
+      Bun.serve({ fetch: opt.handler, port: opt?.port })
       break;
     }
     default: {
@@ -16,7 +16,7 @@ async function serve(handler, opt) {
       const { Hono } = await import('hono');
 
       const app = new Hono();
-      app.get('/*', handler);
+      app.get('/*', opt.handler);
 
       await serve({
         fetch: app.fetch,
