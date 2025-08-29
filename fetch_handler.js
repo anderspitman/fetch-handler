@@ -16,7 +16,7 @@ async function serve(opt) {
       const { Hono } = await import('hono');
 
       const app = new Hono();
-      app.get('/*', (c) => {
+      app.use('*', (c) => {
         return opt.handler(c.req.raw);
       });
 
