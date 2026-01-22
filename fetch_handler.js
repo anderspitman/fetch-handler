@@ -51,9 +51,11 @@ async function serve(opt) {
 
         const req = incomingToRequest(nodeReq);
 
-        const res = await opt.handler(req);
+        const res = await opt.handler(req, nodeReq, nodeRes);
 
-        sendResponse(nodeRes, res);
+        if (res) {
+          sendResponse(nodeRes, res);
+        }
 
       }).listen(opt.port);
 
