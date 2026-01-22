@@ -10,20 +10,52 @@ async function serve(opt) {
       break;
     }
     default: {
-      // Default to assuming node/hono
+      const http = await import('node:http');
+      const { Readable, pipeline } = await import('node:stream');
 
-      const { serve } = await import('@hono/node-server');
-      const { Hono } = await import('hono');
+      function incomingToRequest(req) {
+        const protocol = req.socket.encrypted ? "https" : "http";
+        const url = `${protocol}://${req.headers.host}${req.url}`;
 
-      const app = new Hono();
-      app.use('*', (c) => {
-        return opt.handler(c.req.raw);
-      });
+        const hasBody = req.method !== "GET" && req.method !== "HEAD";
 
-      await serve({
-        fetch: app.fetch,
-        port: opt?.port,
-      });
+        return new Request(url, {
+          method: req.method,
+          headers: req.headers,
+          body: hasBody ? Readable.toWeb(req) : undefined,
+          duplex: hasBody ? "half" : undefined,
+        });
+      }
+
+      function sendResponse(nodeRes, res) {
+        nodeRes.statusCode = res.status;
+        nodeRes.statusMessage = res.statusText;
+
+        for (const [key, value] of res.headers) {
+          nodeRes.setHeader(key, value);
+        }
+
+        if (!res.body) {
+          nodeRes.end();
+          return;
+        }
+
+        pipeline(Readable.fromWeb(res.body), nodeRes, (err) => {
+          if (err) {
+            nodeRes.destroy(err);
+          }
+        });
+      }
+
+      http.createServer(async (nodeReq, nodeRes) => {
+
+        const req = incomingToRequest(nodeReq);
+
+        const res = await opt.handler(req);
+
+        sendResponse(nodeRes, res);
+
+      }).listen(opt.port);
 
       break;
     }
