@@ -19,12 +19,26 @@ async function serve(opt) {
 
         const hasBody = req.method !== "GET" && req.method !== "HEAD";
 
-        return new Request(url, {
+        // TODO: might need to make sure this gets cleaned up after normal
+        // responses.
+        const abortController = new AbortController();
+
+        req.on('close', () => {
+          abortController.abort();
+        });
+
+        const webReq = new Request(url, {
           method: req.method,
           headers: req.headers,
           body: hasBody ? Readable.toWeb(req) : undefined,
           duplex: hasBody ? "half" : undefined,
+          signal: abortController.signal,
         });
+
+        return {
+          req: webReq,
+          abortSignal: abortController.signal,
+        };
       }
 
       function sendResponse(nodeRes, res) {
@@ -49,11 +63,11 @@ async function serve(opt) {
 
       http.createServer(async (nodeReq, nodeRes) => {
 
-        const req = incomingToRequest(nodeReq);
+        const { req, abortSignal } = incomingToRequest(nodeReq);
 
         const res = await opt.handler(req, nodeReq, nodeRes);
 
-        if (res) {
+        if (res && !abortSignal.aborted) {
           sendResponse(nodeRes, res);
         }
 
