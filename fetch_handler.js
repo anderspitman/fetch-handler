@@ -13,7 +13,7 @@ async function serve(opt) {
       const http = await import('node:http');
       const { Readable, pipeline } = await import('node:stream');
 
-      function incomingToRequest(req) {
+      function incomingToRequest(req, nodeRes) {
         const protocol = req.socket.encrypted ? "https" : "http";
         const url = `${protocol}://${req.headers.host}${req.url}`;
 
@@ -23,7 +23,7 @@ async function serve(opt) {
         // responses.
         const abortController = new AbortController();
 
-        req.on('close', () => {
+        nodeRes.on('close', () => {
           abortController.abort();
         });
 
@@ -63,7 +63,7 @@ async function serve(opt) {
 
       http.createServer(async (nodeReq, nodeRes) => {
 
-        const { req, abortSignal } = incomingToRequest(nodeReq);
+        const { req, abortSignal } = incomingToRequest(nodeReq, nodeRes);
 
         const res = await opt.handler(req, nodeReq, nodeRes);
 
