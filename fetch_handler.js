@@ -13,11 +13,11 @@ async function serve(opt) {
       const http = await import('node:http');
       const { Readable, pipeline } = await import('node:stream');
 
-      function incomingToRequest(req, nodeRes) {
-        const protocol = req.socket.encrypted ? "https" : "http";
-        const url = `${protocol}://${req.headers.host}${req.url}`;
+      function incomingToRequest(nodeReq, nodeRes) {
+        const protocol = nodeReq.socket.encrypted ? "https" : "http";
+        const url = `${protocol}://${nodeReq.headers.host}${nodeReq.url}`;
 
-        const hasBody = req.method !== "GET" && req.method !== "HEAD";
+        const hasBody = nodeReq.method !== "GET" && nodeReq.method !== "HEAD";
 
         // TODO: might need to make sure this gets cleaned up after normal
         // responses.
@@ -27,16 +27,16 @@ async function serve(opt) {
           abortController.abort();
         });
 
-        const webReq = new Request(url, {
-          method: req.method,
-          headers: req.headers,
-          body: hasBody ? Readable.toWeb(req) : undefined,
+        const req = new Request(url, {
+          method: nodeReq.method,
+          headers: nodeReq.headers,
+          body: hasBody ? Readable.toWeb(nodeReq) : undefined,
           duplex: hasBody ? "half" : undefined,
           signal: abortController.signal,
         });
 
         return {
-          req: webReq,
+          req,
           abortSignal: abortController.signal,
         };
       }
