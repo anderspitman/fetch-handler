@@ -28,7 +28,7 @@ async function serve(opt) {
 
         const req = new Request(url, {
           method: nodeReq.method,
-          headers: nodeReq.headers,
+          headers: http2HeadersToFetch(nodeReq.headers),
           body: hasBody ? Readable.toWeb(nodeReq) : undefined,
           duplex: hasBody ? "half" : undefined,
           signal: abortController.signal,
@@ -61,7 +61,7 @@ async function serve(opt) {
       }
 
       if (opt.keyPath && opt.certPath) {
-        const https = await import('node:https');
+        const http2 = await import('node:http2');
         const fs = await import('node:fs');
 
         const creds = loadCert(fs, opt.keyPath, opt.certPath);
@@ -71,7 +71,9 @@ async function serve(opt) {
           cert: creds.cert,
         };
 
-        const server = https.createServer(options, async (nodeReq, nodeRes) => {
+        const server = http2.createSecureServer(options)
+
+        server.on('request', async (nodeReq, nodeRes) => {
 
           const { req, abortSignal } = incomingToRequest(nodeReq, nodeRes);
 
@@ -139,6 +141,18 @@ function loadCert(fs, keyPath, certPath) {
     key: fs.readFileSync(keyPath),
     cert: fs.readFileSync(certPath),
   };
+}
+
+function http2HeadersToFetch(headers) {
+  const result = {};
+
+  for (const [key, value] of Object.entries(headers)) {
+    if (typeof key === 'string' && !key.startsWith(':') && value !== undefined) {
+      result[key] = value;
+    }
+  }
+
+  return result;
 }
 
 export {
