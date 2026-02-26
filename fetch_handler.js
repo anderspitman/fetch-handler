@@ -10,7 +10,6 @@ async function serve(opt) {
       break;
     }
     default: {
-      const http = await import('node:http');
       const { Readable, pipeline } = await import('node:stream');
 
       function incomingToRequest(nodeReq, nodeRes) {
@@ -61,17 +60,43 @@ async function serve(opt) {
         });
       }
 
-      http.createServer(async (nodeReq, nodeRes) => {
 
-        const { req, abortSignal } = incomingToRequest(nodeReq, nodeRes);
+      if (opt.key && opt.cert) {
+        const https = await import('node:https');
 
-        const res = await opt.handler(req, nodeReq, nodeRes);
+        const options = {
+          key: opt.key,
+          cert: opt.cert,
+        };
 
-        if (res && !abortSignal.aborted) {
-          sendResponse(nodeRes, res);
-        }
+        https.createServer(options, async (nodeReq, nodeRes) => {
 
-      }).listen(opt.port);
+          const { req, abortSignal } = incomingToRequest(nodeReq, nodeRes);
+
+          const res = await opt.handler(req, nodeReq, nodeRes);
+
+          if (res && !abortSignal.aborted) {
+            sendResponse(nodeRes, res);
+          }
+
+        }).listen(opt.port ? opt.port : 443);
+      }
+      else {
+        const http = await import('node:http');
+
+        http.createServer(async (nodeReq, nodeRes) => {
+
+          const { req, abortSignal } = incomingToRequest(nodeReq, nodeRes);
+
+          const res = await opt.handler(req, nodeReq, nodeRes);
+
+          if (res && !abortSignal.aborted) {
+            sendResponse(nodeRes, res);
+          }
+
+        }).listen(opt.port ? opt.port : 3000);
+      }
+      
 
       break;
     }
