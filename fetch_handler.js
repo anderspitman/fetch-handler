@@ -60,16 +60,18 @@ async function serve(opt) {
         });
       }
 
-
-      if (opt.key && opt.cert) {
+      if (opt.keyPath && opt.certPath) {
         const https = await import('node:https');
+        const fs = await import('node:fs');
+
+        const creds = loadCert(fs, opt.keyPath, opt.certPath);
 
         const options = {
-          key: opt.key,
-          cert: opt.cert,
+          key: creds.key,
+          cert: creds.cert,
         };
 
-        https.createServer(options, async (nodeReq, nodeRes) => {
+        const server = https.createServer(options, async (nodeReq, nodeRes) => {
 
           const { req, abortSignal } = incomingToRequest(nodeReq, nodeRes);
 
@@ -79,7 +81,16 @@ async function serve(opt) {
             sendResponse(nodeRes, res);
           }
 
-        }).listen(opt.port ? opt.port : 443);
+        });
+
+        // check for cert updates periodically
+        const ONE_HOUR_MS = 60*60*1000;
+        setInterval(() => {
+          const creds = loadCert(fs, opt.keyPath, opt.certPath);
+          server.setSecureContext(creds);
+        }, ONE_HOUR_MS);
+
+        server.listen(opt.port ? opt.port : 443);
       }
       else {
         const http = await import('node:http');
@@ -121,6 +132,13 @@ function detectRuntime() {
   }
 
   return "unknown";
+}
+
+function loadCert(fs, keyPath, certPath) {
+  return {
+    key: fs.readFileSync(keyPath),
+    cert: fs.readFileSync(certPath),
+  };
 }
 
 export {
